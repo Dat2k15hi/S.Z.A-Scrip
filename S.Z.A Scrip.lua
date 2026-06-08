@@ -1,7 +1,7 @@
 --[[
     S.Z.A ULTIMATE HUB - by S.Z.A Scrip
-    - Godmode CŨ: tự động bay lên (HipHeight = 25) + hồi máu
-    - Instant Kill: 999999 damage
+    - Godmode cũ: tự động bay lên (HipHeight = 25) + hồi máu
+    - Instant Kill cũ: damage 999999 qua Heartbeat
     - Đẩy zombie: không lại gần
     - Auto Farm Void Shard
     - Auto Skip Wave (1 giây)
@@ -11,9 +11,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "S.Z.A Scrip",
+    Name = "by S.Z.A Scrip",
     LoadingTitle = "by S.Z.A Scrip",
-    LoadingSubtitle = "Godmode cũ - bay lên cao",
+    LoadingSubtitle = "Đang tải...",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "SZA_Scrip",
@@ -45,43 +45,39 @@ local farmConnection = nil
 local skipConnection = nil
 local antiLagLoop = nil
 
--- Damage remote
-local DamageRemote = nil
-local function getDamageRemote()
-    if DamageRemote then return DamageRemote end
-    DamageRemote = RS:FindFirstChild("ZombieRemotes") and RS.ZombieRemotes:FindFirstChild("ZombieDamage")
-    if not DamageRemote then
-        for _, v in ipairs(RS:GetDescendants()) do
-            if v:IsA("RemoteEvent") and (v.Name:lower():find("damage") or v.Name:lower():find("hit")) then
-                DamageRemote = v
-                break
-            end
+-- Helper
+local function getZombieTable()
+    local ok, mod = pcall(require, LP.PlayerScripts.Controllers.ZombieClient)
+    if ok and mod.Zombies then return mod.Zombies end
+    if getgc then
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "table" and rawget(v, "Zombies") then return v.Zombies end
         end
     end
-    return DamageRemote
+    return workspace:FindFirstChild("Zombies_Local") and workspace.Zombies_Local:GetChildren() or {}
 end
 
-local function getZombies()
-    local zombies = Workspace:FindFirstChild("Zombies_Local")
-    if zombies then return zombies:GetChildren() end
-    return {}
-end
-
--- ==================== 1. INSTANT KILL ====================
+-- ==================== 1. INSTANT KILL (CŨ) ====================
 local function startIK()
     if ikConnection then return end
     ikConnection = RunService.Heartbeat:Connect(function()
         if not isIK then return end
-        local remote = getDamageRemote()
+        local zs = getZombieTable()
+        local remote = RS:FindFirstChild("ZombieRemotes") and RS.ZombieRemotes:FindFirstChild("ZombieDamage")
         if not remote then return end
-        local zombies = getZombies()
-        for _, z in ipairs(zombies) do
-            if z:IsA("Model") then
-                local hum = z:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    local id = tonumber(z.Name:match("%d+"))
-                    if id then
-                        remote:FireServer(id, 999999999)
+        if type(zs) == "table" and not zs.IsA then
+            for id, data in pairs(zs) do
+                if data and not data.IsDying and data.Health > 0 then
+                    remote:FireServer(id, 9e9)
+                end
+            end
+        else
+            for _, z in ipairs(zs) do
+                if z:IsA("Model") then
+                    local hum = z:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        local id = tonumber(z.Name:match("%d+"))
+                        if id then remote:FireServer(id, 9e9) end
                     end
                 end
             end
@@ -93,7 +89,7 @@ local function stopIK()
     if ikConnection then ikConnection:Disconnect(); ikConnection = nil end
 end
 
--- ==================== 2. GODMODE CŨ (TỰ BAY LÊN, HIPHEIGHT=25) ====================
+-- ==================== 2. GODMODE CŨ ====================
 local origHip = nil
 
 local function startGod()
@@ -110,7 +106,7 @@ local function startGod()
             end
             for _, s in ipairs(c:GetChildren()) do
                 if s:IsA("Script") and (s.Name:lower():find("damage") or s.Name:lower():find("health")) then
-                    s:Disable()
+                    pcall(function() s:Disable() end)
                 end
             end
         end
@@ -148,7 +144,6 @@ local function stopGod()
         task.cancel(godLoop)
         godLoop = nil
     end
-    -- Khôi phục HipHeight cũ
     local c = LP.Character
     if c then
         local hum = c:FindFirstChildOfClass("Humanoid")
@@ -168,8 +163,9 @@ local function startPush()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
         local playerPos = hrp.Position
-        local zombies = getZombies()
-        for _, z in ipairs(zombies) do
+        local zombies = workspace:FindFirstChild("Zombies_Local")
+        if not zombies then return end
+        for _, z in ipairs(zombies:GetChildren()) do
             if z:IsA("Model") then
                 local zRoot = z:FindFirstChild("HumanoidRootPart") or z.PrimaryPart
                 if zRoot then
@@ -193,7 +189,7 @@ local function startFarm()
     if farmConnection then return end
     farmConnection = RunService.Heartbeat:Connect(function()
         if not isFarm then return end
-        for _, obj in ipairs(Workspace:GetDescendants()) do
+        for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("BasePart") and (obj.Name == "VoidShard" or (obj.Name and obj.Name:find("Shard"))) then
                 local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                 if hrp and (hrp.Position - obj.Position).Magnitude < 40 then
@@ -204,7 +200,7 @@ local function startFarm()
                 end
             end
         end
-        for _, crate in ipairs(Workspace:GetDescendants()) do
+        for _, crate in ipairs(workspace:GetDescendants()) do
             if crate:IsA("Model") and crate.Name == "GalacticCrate" then
                 local cd = crate:FindFirstChildOfClass("ClickDetector")
                 if cd then fireclickdetector(cd) end
@@ -243,14 +239,16 @@ local function startSkip()
         if not isSkip then return end
         local remote = findSkipRemote()
         if remote then
-            local zombies = Workspace:FindFirstChild("Zombies_Local")
+            local zombies = workspace:FindFirstChild("Zombies_Local")
             local hasZombie = zombies and #zombies:GetChildren() > 0
             if not hasZombie then
-                if remote:IsA("RemoteEvent") then
-                    remote:FireServer()
-                else
-                    remote:Fire()
-                end
+                pcall(function()
+                    if remote:IsA("RemoteEvent") then
+                        remote:FireServer()
+                    else
+                        remote:Fire()
+                    end
+                end)
             end
         end
         task.wait(1)
@@ -274,7 +272,7 @@ local function startAntiLag()
     Lighting.GlobalShadows = false
     Lighting.FogEnd = 0
     
-    for _, v in ipairs(Workspace:GetDescendants()) do
+    for _, v in ipairs(workspace:GetDescendants()) do
         if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Decal") then
             v:Destroy()
         elseif v:IsA("BasePart") then
@@ -285,7 +283,7 @@ local function startAntiLag()
     
     antiLagLoop = task.spawn(function()
         while isAntiLag and task.wait(10) do
-            for _, v in ipairs(Workspace:GetDescendants()) do
+            for _, v in ipairs(workspace:GetDescendants()) do
                 if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") then
                     v:Destroy()
                 end
@@ -315,7 +313,7 @@ local MainTab = Window:CreateTab("Trang Chủ", "home")
 
 MainTab:CreateSection("Chiến Đấu")
 MainTab:CreateToggle({Name = "Instant Kill (1 hit chết)", CurrentValue = false, Callback = function(v) isIK = v; if v then startIK() else stopIK() end end})
-MainTab:CreateToggle({Name = "Godmode cũ (Bay lên cao)", CurrentValue = false, Callback = function(v) isGod = v; if v then startGod() else stopGod() end end})
+MainTab:CreateToggle({Name = "Godmode (Bay lên cao)", CurrentValue = false, Callback = function(v) isGod = v; if v then startGod() else stopGod() end end})
 MainTab:CreateToggle({Name = "Đẩy Zombie (Không lại gần)", CurrentValue = false, Callback = function(v) isPush = v; if v then startPush() else stopPush() end end})
 
 MainTab:CreateSection("Farm & Tiện Ích")
@@ -323,4 +321,4 @@ MainTab:CreateToggle({Name = "Auto Farm Void Shard", CurrentValue = false, Callb
 MainTab:CreateToggle({Name = "Auto Skip Wave (1 giây)", CurrentValue = false, Callback = function(v) isSkip = v; if v then startSkip() else stopSkip() end end})
 MainTab:CreateToggle({Name = "Anti Lag (Cực mượt)", CurrentValue = false, Callback = function(v) isAntiLag = v; if v then startAntiLag() else stopAntiLag() end end})
 
-Rayfield:Notify({Title = "S.Z.A Scrip", Content = "Godmode cũ - tự động bay lên cao (HipHeight=25)", Duration = 3})
+Rayfield:Notify({Title = "by S.Z.A Scrip", Content = "Đã tải thành công!", Duration = 3})
