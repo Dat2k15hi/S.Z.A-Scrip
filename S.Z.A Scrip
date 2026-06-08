@@ -1,6 +1,11 @@
 --[[
-    S.Z.A ULTIMATE HUB - by S.Z.A Scrip
-    Tính năng: Instant Kill, Godmode (chống rớt + hồi máu, vẫn di chuyển), Đẩy Zombie, Auto Farm Void Shard, Auto Skip 1s, Anti Lag cực mạnh
+    S.Z.A ULTIMATE HUB - by S.Z.A Scrip (FIXED)
+    - Godmode: DI CHUYỂN ĐƯỢC + hồi máu + chống rớt (không bay)
+    - Instant Kill: 999999 damage
+    - Đẩy zombie: không lại gần
+    - Auto Farm Void Shard
+    - Auto Skip Wave (1 giây)
+    - Anti Lag cực mạnh
 --]]
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -8,7 +13,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "S.Z.A Scrip",
     LoadingTitle = "by S.Z.A Scrip",
-    LoadingSubtitle = "Đang tải...",
+    LoadingSubtitle = "Godmode di chuyển dc - chống rớt",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "SZA_Scrip",
@@ -23,8 +28,9 @@ local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
 
--- ========== BIẾN TOÀN CỤC ==========
+-- ========== BIẾN ==========
 local isIK = false
 local isGod = false
 local isPush = false
@@ -39,7 +45,7 @@ local farmConnection = nil
 local skipConnection = nil
 local antiLagLoop = nil
 
--- Cache remote damage
+-- Damage remote
 local DamageRemote = nil
 local function getDamageRemote()
     if DamageRemote then return DamageRemote end
@@ -55,7 +61,6 @@ local function getDamageRemote()
     return DamageRemote
 end
 
--- Lấy danh sách zombie
 local function getZombies()
     local zombies = Workspace:FindFirstChild("Zombies_Local")
     if zombies then return zombies:GetChildren() end
@@ -88,34 +93,50 @@ local function stopIK()
     if ikConnection then ikConnection:Disconnect(); ikConnection = nil end
 end
 
--- ==================== 2. GODMODE (CHỐNG RỚT + HỒI MÁU, VẪN DI CHUYỂN) ====================
+-- ==================== 2. GODMODE (DI CHUYỂN ĐC + HỒI MÁU + CHỐNG RỚT) ====================
+local groundY = nil
+
 local function startGod()
     if godConnection then return end
-    local originalY = nil
+    
+    local char = LP.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        groundY = char.HumanoidRootPart.Position.Y
+    else
+        groundY = 3
+    end
+    
     godConnection = RunService.Heartbeat:Connect(function()
         if not isGod then return end
-        local char = LP.Character
-        if not char then return end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        if originalY == nil then
-            originalY = hrp.Position.Y
-        end
-        if hrp.Position.Y < originalY - 0.5 then
-            hrp.CFrame = CFrame.new(hrp.Position.X, originalY, hrp.Position.Z)
-        end
-        local hum = char:FindFirstChildOfClass("Humanoid")
+        
+        local c = LP.Character
+        if not c then return end
+        
+        -- Hồi máu
+        local hum = c:FindFirstChildOfClass("Humanoid")
         if hum then
             if hum.Health < hum.MaxHealth then
                 hum.Health = hum.MaxHealth
             end
             hum.BreakJointsOnDeath = false
         end
+        
+        -- Chống rớt (giữ nguyên X, Z, chỉ sửa Y)
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            if hrp.Position.Y < groundY - 1 then
+                hrp.CFrame = CFrame.new(hrp.Position.X, groundY, hrp.Position.Z)
+            end
+        end
     end)
 end
 
 local function stopGod()
-    if godConnection then godConnection:Disconnect(); godConnection = nil end
+    if godConnection then
+        godConnection:Disconnect()
+        godConnection = nil
+    end
+    groundY = nil
 end
 
 -- ==================== 3. ĐẨY ZOMBIE ====================
@@ -148,7 +169,7 @@ local function stopPush()
     if pushConnection then pushConnection:Disconnect(); pushConnection = nil end
 end
 
--- ==================== 4. AUTO FARM VOID SHARD ====================
+-- ==================== 4. AUTO FARM ====================
 local function startFarm()
     if farmConnection then return end
     farmConnection = RunService.Heartbeat:Connect(function()
@@ -178,7 +199,7 @@ local function stopFarm()
     if farmConnection then farmConnection:Disconnect(); farmConnection = nil end
 end
 
--- ==================== 5. AUTO SKIP WAVE ====================
+-- ==================== 5. AUTO SKIP ====================
 local skipRemote = nil
 local function findSkipRemote()
     if skipRemote then return skipRemote end
@@ -275,7 +296,7 @@ local MainTab = Window:CreateTab("Trang Chủ", "home")
 
 MainTab:CreateSection("Chiến Đấu")
 MainTab:CreateToggle({Name = "Instant Kill (1 hit chết)", CurrentValue = false, Callback = function(v) isIK = v; if v then startIK() else stopIK() end end})
-MainTab:CreateToggle({Name = "Godmode (Chống rớt + Hồi máu)", CurrentValue = false, Callback = function(v) isGod = v; if v then startGod() else stopGod() end end})
+MainTab:CreateToggle({Name = "Godmode (Hồi máu + Chống rớt)", CurrentValue = false, Callback = function(v) isGod = v; if v then startGod() else stopGod() end end})
 MainTab:CreateToggle({Name = "Đẩy Zombie (Không lại gần)", CurrentValue = false, Callback = function(v) isPush = v; if v then startPush() else stopPush() end end})
 
 MainTab:CreateSection("Farm & Tiện Ích")
@@ -283,4 +304,4 @@ MainTab:CreateToggle({Name = "Auto Farm Void Shard", CurrentValue = false, Callb
 MainTab:CreateToggle({Name = "Auto Skip Wave (1 giây)", CurrentValue = false, Callback = function(v) isSkip = v; if v then startSkip() else stopSkip() end end})
 MainTab:CreateToggle({Name = "Anti Lag (Cực mượt)", CurrentValue = false, Callback = function(v) isAntiLag = v; if v then startAntiLag() else stopAntiLag() end end})
 
-Rayfield:Notify({Title = "S.Z.A Scrip", Content = "Đã tải thành công!", Duration = 3})# S.Z.A-Scrip
+Rayfield:Notify({Title = "S.Z.A Scrip", Content = "Godmode di chuyển được + chống rớt + hồi máu", Duration = 3})
