@@ -1,6 +1,6 @@
 --[[
-    S.Z.A ULTIMATE HUB - by S.Z.A Scrip (FIXED)
-    - Godmode: DI CHUYỂN ĐƯỢC + hồi máu + chống rớt (không bay)
+    S.Z.A ULTIMATE HUB - by S.Z.A Scrip
+    - Godmode CŨ: tự động bay lên (HipHeight = 25) + hồi máu
     - Instant Kill: 999999 damage
     - Đẩy zombie: không lại gần
     - Auto Farm Void Shard
@@ -13,7 +13,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "S.Z.A Scrip",
     LoadingTitle = "by S.Z.A Scrip",
-    LoadingSubtitle = "Godmode di chuyển dc - chống rớt",
+    LoadingSubtitle = "Godmode cũ - bay lên cao",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "SZA_Scrip",
@@ -28,7 +28,6 @@ local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
-local UIS = game:GetService("UserInputService")
 
 -- ========== BIẾN ==========
 local isIK = false
@@ -40,6 +39,7 @@ local isAntiLag = false
 
 local ikConnection = nil
 local godConnection = nil
+local godLoop = nil
 local pushConnection = nil
 local farmConnection = nil
 local skipConnection = nil
@@ -93,39 +93,47 @@ local function stopIK()
     if ikConnection then ikConnection:Disconnect(); ikConnection = nil end
 end
 
--- ==================== 2. GODMODE (DI CHUYỂN ĐC + HỒI MÁU + CHỐNG RỚT) ====================
-local groundY = nil
+-- ==================== 2. GODMODE CŨ (TỰ BAY LÊN, HIPHEIGHT=25) ====================
+local origHip = nil
 
 local function startGod()
     if godConnection then return end
     
-    local char = LP.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        groundY = char.HumanoidRootPart.Position.Y
-    else
-        groundY = 3
+    local function setProps()
+        local c = LP.Character
+        if c then
+            local hum = c:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if origHip == nil then origHip = hum.HipHeight end
+                hum.HipHeight = 25
+                hum.BreakJointsOnDeath = false
+            end
+            for _, s in ipairs(c:GetChildren()) do
+                if s:IsA("Script") and (s.Name:lower():find("damage") or s.Name:lower():find("health")) then
+                    s:Disable()
+                end
+            end
+        end
     end
     
-    godConnection = RunService.Heartbeat:Connect(function()
-        if not isGod then return end
-        
-        local c = LP.Character
-        if not c then return end
-        
-        -- Hồi máu
-        local hum = c:FindFirstChildOfClass("Humanoid")
-        if hum then
-            if hum.Health < hum.MaxHealth then
-                hum.Health = hum.MaxHealth
-            end
-            hum.BreakJointsOnDeath = false
-        end
-        
-        -- Chống rớt (giữ nguyên X, Z, chỉ sửa Y)
-        local hrp = c:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            if hrp.Position.Y < groundY - 1 then
-                hrp.CFrame = CFrame.new(hrp.Position.X, groundY, hrp.Position.Z)
+    setProps()
+    
+    godConnection = LP.CharacterAdded:Connect(function()
+        task.wait(1)
+        setProps()
+    end)
+    
+    godLoop = task.spawn(function()
+        while isGod and task.wait(0.3) do
+            local c = LP.Character
+            if c then
+                local hum = c:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.HipHeight = 25
+                    if hum.Health < hum.MaxHealth then
+                        hum.Health = hum.MaxHealth
+                    end
+                end
             end
         end
     end)
@@ -136,7 +144,18 @@ local function stopGod()
         godConnection:Disconnect()
         godConnection = nil
     end
-    groundY = nil
+    if godLoop then
+        task.cancel(godLoop)
+        godLoop = nil
+    end
+    -- Khôi phục HipHeight cũ
+    local c = LP.Character
+    if c then
+        local hum = c:FindFirstChildOfClass("Humanoid")
+        if hum and origHip then
+            hum.HipHeight = origHip
+        end
+    end
 end
 
 -- ==================== 3. ĐẨY ZOMBIE ====================
@@ -296,7 +315,7 @@ local MainTab = Window:CreateTab("Trang Chủ", "home")
 
 MainTab:CreateSection("Chiến Đấu")
 MainTab:CreateToggle({Name = "Instant Kill (1 hit chết)", CurrentValue = false, Callback = function(v) isIK = v; if v then startIK() else stopIK() end end})
-MainTab:CreateToggle({Name = "Godmode (Hồi máu + Chống rớt)", CurrentValue = false, Callback = function(v) isGod = v; if v then startGod() else stopGod() end end})
+MainTab:CreateToggle({Name = "Godmode cũ (Bay lên cao)", CurrentValue = false, Callback = function(v) isGod = v; if v then startGod() else stopGod() end end})
 MainTab:CreateToggle({Name = "Đẩy Zombie (Không lại gần)", CurrentValue = false, Callback = function(v) isPush = v; if v then startPush() else stopPush() end end})
 
 MainTab:CreateSection("Farm & Tiện Ích")
@@ -304,4 +323,4 @@ MainTab:CreateToggle({Name = "Auto Farm Void Shard", CurrentValue = false, Callb
 MainTab:CreateToggle({Name = "Auto Skip Wave (1 giây)", CurrentValue = false, Callback = function(v) isSkip = v; if v then startSkip() else stopSkip() end end})
 MainTab:CreateToggle({Name = "Anti Lag (Cực mượt)", CurrentValue = false, Callback = function(v) isAntiLag = v; if v then startAntiLag() else stopAntiLag() end end})
 
-Rayfield:Notify({Title = "S.Z.A Scrip", Content = "Godmode di chuyển được + chống rớt + hồi máu", Duration = 3})
+Rayfield:Notify({Title = "S.Z.A Scrip", Content = "Godmode cũ - tự động bay lên cao (HipHeight=25)", Duration = 3})
